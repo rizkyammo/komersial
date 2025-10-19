@@ -1,0 +1,1132 @@
+<?php
+require_once 'config.php';
+
+// Fungsi untuk mendapatkan data dari database
+function getTransactions() {
+    $conn = getDBConnection();
+    $stmt = $conn->query("SELECT * FROM transactions ORDER BY tanggal DESC");
+    $transactions = [];
+    
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $transactions[] = [
+            'id' => (int)$row['id'],
+            'perusahaan' => $row['perusahaan'],
+            'perusahaanId' => (int)$row['perusahaan_id'],
+            'bahanLedak' => json_decode($row['bahan_ledak'], true),
+            'biayaLogistik' => (float)$row['biaya_logistik'],
+            'beritaAcara' => $row['berita_acara'],
+            'namaFile' => $row['nama_file'],
+            'tanggal' => $row['tanggal']
+        ];
+    }
+    
+    return $transactions;
+}
+
+function getBahanPeledak() {
+    $conn = getDBConnection();
+    $stmt = $conn->query("SELECT * FROM bahan_peledak");
+    $bahanPeledak = [];
+    
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $bahanPeledak[] = [
+            'id' => (int)$row['id'],
+            'nama' => $row['nama'],
+            'satuan' => $row['satuan']
+        ];
+    }
+    
+    // Jika belum ada data, inisialisasi dengan data default
+    if (empty($bahanPeledak)) {
+        $defaultBahan = [
+            ['id' => 1, 'nama' => 'Dynamite', 'satuan' => 'kg'],
+            ['id' => 2, 'nama' => 'TNT', 'satuan' => 'box'],
+            ['id' => 3, 'nama' => 'C4', 'satuan' => 'unit'],
+            ['id' => 4, 'nama' => 'ANFO', 'satuan' => 'kg'],
+            ['id' => 5, 'nama' => 'Gelignite', 'satuan' => 'unit']
+        ];
+        
+        $stmt = $conn->prepare("INSERT INTO bahan_peledak (nama, satuan) VALUES (?, ?)");
+        foreach ($defaultBahan as $bahan) {
+            $stmt->execute([$bahan['nama'], $bahan['satuan']]);
+        }
+        
+        return $defaultBahan;
+    }
+    
+    return $bahanPeledak;
+}
+
+function getCustomers() {
+    $conn = getDBConnection();
+    $stmt = $conn->query("SELECT * FROM customers");
+    $customers = [];
+    
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $customers[] = [
+            'id' => (int)$row['id'],
+            'nama' => $row['nama'],
+            'alamat' => $row['alamat'],
+            'koordinat' => ['lat' => (float)$row['lat'], 'lng' => (float)$row['lng']]
+        ];
+    }
+    
+    // Jika belum ada data, inisialisasi dengan data default
+    if (empty($customers)) {
+        $defaultCustomers = [
+            [
+                'id' => 1,
+                'nama' => 'PT Tambang Emas Nusantara',
+                'alamat' => 'Jl. Pertambangan No. 123, Kalimantan Tengah',
+                'koordinat' => ['lat' => -2.5489, 'lng' => 115.3238]
+            ],
+            [
+                'id' => 2,
+                'nama' => 'PT Batu Bara Sejahtera',
+                'alamat' => 'Komplek Pertambangan Batu Bara, Sumatera Selatan',
+                'koordinat' => ['lat' => -3.3199, 'lng' => 103.9144]
+            ],
+            [
+                'id' => 3,
+                'nama' => 'PT Mineral Indonesia',
+                'alamat' => 'Kawasan Industri Mineral, Jawa Timur',
+                'koordinat' => ['lat' => -7.5361, 'lng' => 112.2384]
+            ]
+        ];
+        
+        $stmt = $conn->prepare("INSERT INTO customers (nama, alamat, lat, lng) VALUES (?, ?, ?, ?)");
+        foreach ($defaultCustomers as $customer) {
+            $stmt->execute([
+                $customer['nama'],
+                $customer['alamat'],
+                $customer['koordinat']['lat'],
+                $customer['koordinat']['lng']
+            ]);
+        }
+        
+        return $defaultCustomers;
+    }
+    
+    return $customers;
+}
+
+function getSIKKemhan() {
+    $conn = getDBConnection();
+    $stmt = $conn->query("SELECT * FROM sik_kemhan");
+    $sikKemhan = [];
+    
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $sikKemhan[] = [
+            'id' => (int)$row['id'],
+            'nomor' => $row['nomor'],
+            'tanggalMulai' => $row['tanggal_mulai'],
+            'tanggalBerakhir' => $row['tanggal_berakhir'],
+            'bahan' => json_decode($row['bahan'], true),
+            'keterangan' => $row['keterangan']
+        ];
+    }
+    
+    // Jika belum ada data, inisialisasi dengan data default
+    if (empty($sikKemhan)) {
+        $defaultSIK = [
+            [
+                'id' => 1,
+                'nomor' => 'SIK/123/IV/2023',
+                'tanggalMulai' => '2023-04-01',
+                'tanggalBerakhir' => '2024-03-31',
+                'bahan' => [
+                    ['bahanId' => 1, 'kuota' => 5000, 'terpakai' => 0],
+                    ['bahanId' => 2, 'kuota' => 3000, 'terpakai' => 0],
+                    ['bahanId' => 3, 'kuota' => 1000, 'terpakai' => 0]
+                ],
+                'keterangan' => 'Surat Izin Tahunan'
+            ],
+            [
+                'id' => 2,
+                'nomor' => 'SIK/456/V/2023',
+                'tanggalMulai' => '2023-05-15',
+                'tanggalBerakhir' => '2024-05-14',
+                'bahan' => [
+                    ['bahanId' => 4, 'kuota' => 8000, 'terpakai' => 0],
+                    ['bahanId' => 5, 'kuota' => 2000, 'terpakai' => 0]
+                ],
+                'keterangan' => 'Surat Izin Tambahan'
+            ],
+            [
+                'id' => 3,
+                'nomor' => 'SIK/789/VI/2022',
+                'tanggalMulai' => '2022-06-01',
+                'tanggalBerakhir' => '2023-05-31',
+                'bahan' => [
+                    ['bahanId' => 1, 'kuota' => 4000, 'terpakai' => 4000],
+                    ['bahanId' => 2, 'kuota' => 2500, 'terpakai' => 2500],
+                    ['bahanId' => 4, 'kuota' => 6000, 'terpakai' => 6000]
+                ],
+                'keterangan' => 'Surat Izin Tahun 2022'
+            ]
+        ];
+        
+        $stmt = $conn->prepare("
+            INSERT INTO sik_kemhan (nomor, tanggal_mulai, tanggal_berakhir, bahan, keterangan) 
+            VALUES (?, ?, ?, ?::jsonb, ?)
+        ");
+        
+        foreach ($defaultSIK as $sik) {
+            $stmt->execute([
+                $sik['nomor'],
+                $sik['tanggalMulai'],
+                $sik['tanggalBerakhir'],
+                json_encode($sik['bahan']),
+                $sik['keterangan']
+            ]);
+        }
+        
+        return $defaultSIK;
+    }
+    
+    return $sikKemhan;
+}
+
+// Fungsi untuk menyimpan data ke database
+function saveTransaction($data) {
+    $conn = getDBConnection();
+    $stmt = $conn->prepare("
+        INSERT INTO transactions (perusahaan, perusahaan_id, bahan_ledak, biaya_logistik, berita_acara, nama_file, tanggal) 
+        VALUES (?, ?, ?::jsonb, ?, ?, ?, ?)
+    ");
+    
+    return $stmt->execute([
+        $data['perusahaan'],
+        $data['perusahaanId'],
+        json_encode($data['bahanLedak']),
+        $data['biayaLogistik'],
+        $data['beritaAcara'] ?? null,
+        $data['namaFile'] ?? null,
+        $data['tanggal']
+    ]);
+}
+
+function updateTransaction($id, $data) {
+    $conn = getDBConnection();
+    $stmt = $conn->prepare("
+        UPDATE transactions 
+        SET perusahaan = ?, perusahaan_id = ?, bahan_ledak = ?::jsonb, biaya_logistik = ?, 
+            berita_acara = ?, nama_file = ?, tanggal = ? 
+        WHERE id = ?
+    ");
+    
+    return $stmt->execute([
+        $data['perusahaan'],
+        $data['perusahaanId'],
+        json_encode($data['bahanLedak']),
+        $data['biayaLogistik'],
+        $data['beritaAcara'] ?? null,
+        $data['namaFile'] ?? null,
+        $data['tanggal'],
+        $id
+    ]);
+}
+
+function deleteTransaction($id) {
+    $conn = getDBConnection();
+    $stmt = $conn->prepare("DELETE FROM transactions WHERE id = ?");
+    return $stmt->execute([$id]);
+}
+
+function saveBahanPeledak($data) {
+    $conn = getDBConnection();
+    $stmt = $conn->prepare("INSERT INTO bahan_peledak (nama, satuan) VALUES (?, ?)");
+    return $stmt->execute([$data['nama'], $data['satuan']]);
+}
+
+function deleteBahanPeledak($id) {
+    $conn = getDBConnection();
+    $stmt = $conn->prepare("DELETE FROM bahan_peledak WHERE id = ?");
+    return $stmt->execute([$id]);
+}
+
+function saveCustomer($data) {
+    $conn = getDBConnection();
+    $stmt = $conn->prepare("INSERT INTO customers (nama, alamat, lat, lng) VALUES (?, ?, ?, ?)");
+    return $stmt->execute([
+        $data['nama'],
+        $data['alamat'],
+        $data['koordinat']['lat'],
+        $data['koordinat']['lng']
+    ]);
+}
+
+function deleteCustomer($id) {
+    $conn = getDBConnection();
+    $stmt = $conn->prepare("DELETE FROM customers WHERE id = ?");
+    return $stmt->execute([$id]);
+}
+
+function saveSIKKemhan($data) {
+    $conn = getDBConnection();
+    $stmt = $conn->prepare("
+        INSERT INTO sik_kemhan (nomor, tanggal_mulai, tanggal_berakhir, bahan, keterangan) 
+        VALUES (?, ?, ?, ?::jsonb, ?)
+    ");
+    
+    return $stmt->execute([
+        $data['nomor'],
+        $data['tanggalMulai'],
+        $data['tanggalBerakhir'],
+        json_encode($data['bahan']),
+        $data['keterangan'] ?? null
+    ]);
+}
+
+function updateSIKKemhan($id, $data) {
+    $conn = getDBConnection();
+    $stmt = $conn->prepare("
+        UPDATE sik_kemhan 
+        SET nomor = ?, tanggal_mulai = ?, tanggal_berakhir = ?, bahan = ?::jsonb, keterangan = ? 
+        WHERE id = ?
+    ");
+    
+    return $stmt->execute([
+        $data['nomor'],
+        $data['tanggalMulai'],
+        $data['tanggalBerakhir'],
+        json_encode($data['bahan']),
+        $data['keterangan'] ?? null,
+        $id
+    ]);
+}
+
+function deleteSIKKemhan($id) {
+    $conn = getDBConnection();
+    $stmt = $conn->prepare("DELETE FROM sik_kemhan WHERE id = ?");
+    return $stmt->execute([$id]);
+}
+
+// Proses form submission jika ada
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (isset($_POST['action'])) {
+        $action = $_POST['action'];
+        
+        switch ($action) {
+            case 'save_transaction':
+                // Proses penyimpanan transaksi
+                $transactionData = json_decode($_POST['transaction_data'], true);
+                
+                if (isset($_POST['edit_id']) && !empty($_POST['edit_id'])) {
+                    // Update transaksi yang sudah ada
+                    updateTransaction($_POST['edit_id'], $transactionData);
+                } else {
+                    // Simpan transaksi baru
+                    saveTransaction($transactionData);
+                }
+                break;
+                
+            case 'save_bahan':
+                // Proses penyimpanan bahan peledak
+                $bahanData = [
+                    'nama' => $_POST['nama_bahan'],
+                    'satuan' => $_POST['satuan_bahan']
+                ];
+                saveBahanPeledak($bahanData);
+                break;
+                
+            case 'save_customer':
+                // Proses penyimpanan customer
+                $customerData = [
+                    'nama' => $_POST['nama_customer'],
+                    'alamat' => $_POST['alamat_customer'],
+                    'koordinat' => [
+                        'lat' => floatval($_POST['latitude']),
+                        'lng' => floatval($_POST['longitude'])
+                    ]
+                ];
+                saveCustomer($customerData);
+                break;
+                
+            case 'delete_transaction':
+                if (isset($_POST['id'])) {
+                    deleteTransaction($_POST['id']);
+                }
+                break;
+                
+            case 'delete_bahan':
+                if (isset($_POST['id'])) {
+                    deleteBahanPeledak($_POST['id']);
+                }
+                break;
+                
+            case 'delete_customer':
+                if (isset($_POST['id'])) {
+                    deleteCustomer($_POST['id']);
+                }
+                break;
+                
+            case 'save_sik':
+                $sikData = json_decode($_POST['sik_data'], true);
+                
+                if (isset($_POST['edit_id']) && !empty($_POST['edit_id'])) {
+                    updateSIKKemhan($_POST['edit_id'], $sikData);
+                } else {
+                    saveSIKKemhan($sikData);
+                }
+                break;
+                
+            case 'delete_sik':
+                if (isset($_POST['id'])) {
+                    deleteSIKKemhan($_POST['id']);
+                }
+                break;
+        }
+        
+        // Redirect untuk menghindari resubmission
+        header('Location: ' . $_SERVER['PHP_SELF']);
+        exit;
+    }
+}
+
+// Data akan diambil dari database
+$transactions = getTransactions();
+$bahanPeledak = getBahanPeledak();
+$customers = getCustomers();
+$sikKemhanList = getSIKKemhan();
+?>
+
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ERP - PT Distribusi Ammo Nusantara</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo">
+                <div class="logo-icon">
+                    <img src="logo.png" alt="Logo PT Distribusi Ammo Nusantara">
+                </div>
+                <div class="logo-text">
+                    <h1>PT Distribusi Ammo Nusantara</h1>
+                    <p>Divisi Komersial</p>
+                </div>
+            </div>
+            <div class="date-display" id="currentDate"></div>
+        </header>
+        
+        <div class="tabs">
+            <button class="tab-btn active" data-tab="dashboard">
+                <i class="fas fa-tachometer-alt"></i> Dashboard
+            </button>
+            <button class="tab-btn" data-tab="input-transaksi">
+                <i class="fas fa-cart-plus"></i> Input Transaksi
+            </button>
+            <button class="tab-btn" data-tab="master-data">
+                <i class="fas fa-database"></i> Master Data
+            </button>
+            <button class="tab-btn" data-tab="sik-kemhan">
+                <i class="fas fa-file-contract"></i> SIK Kemhan
+            </button>
+            <button class="tab-btn" data-tab="map">
+                <i class="fas fa-map-marked-alt"></i> Peta Persebaran
+            </button>
+            <button class="tab-btn" data-tab="reports">
+                <i class="fas fa-chart-bar"></i> Laporan
+            </button>
+        </div>
+        
+        <!-- Dashboard dengan panel master data -->
+        <div id="dashboard" class="tab-content active">
+            <div class="dashboard-container">
+                <!-- Panel Master Bahan Peledak -->
+                <div class="master-panel">
+                    <div class="master-panel-header">
+                        <h3><i class="fas fa-bomb"></i> Bahan Peledak</h3>
+                        <span class="badge badge-info" id="bahan-count">0</span>
+                    </div>
+                    <div class="search-container">
+                        <i class="fas fa-search"></i>
+                        <input type="text" id="search-bahan" placeholder="Cari bahan peledak...">
+                    </div>
+                    <div class="master-list" id="bahan-list">
+                        <!-- Daftar bahan akan diisi JavaScript -->
+                    </div>
+                </div>
+                
+                <!-- Konten Utama Dashboard -->
+                <div class="main-dashboard">
+                        <h3>Summary</h3>
+                    <div class="stats">
+    <div class="stat-card">
+        <div class="stat-label">Total Transaksi Keseluruhan</div>
+        <div class="stat-value" id="totalTransactions">0</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Total Nilai Penjualan</div>
+        <div class="stat-value" id="totalSales">Rp0</div>
+    </div>
+</div>
+<!-- Baris kedua: Statistik per bahan peledak -->
+<div class="stats-bahan-container">
+    <div class="stats-bahan" id="statsBahan">
+        <!-- Statistik per bahan akan diisi JavaScript -->
+    </div>
+</div>
+                    
+                    <div class="filter-row">
+                        <div class="form-group">
+                            <label for="filter-start-date">Tanggal Mulai</label>
+                            <input type="date" id="filter-start-date" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label for="filter-end-date">Tanggal Selesai</label>
+                            <input type="date" id="filter-end-date" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label for="filter-customer">Filter Site</label>
+                            <select id="filter-customer" class="form-control">
+                                <option value="">Semua Site</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="filter-bahan">Filter Bahan Peledak</label>
+                            <select id="filter-bahan" class="form-control">
+                                <option value="">Semua Bahan</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="dashboard-actions">
+                        <button id="apply-filters" class="btn btn-primary">
+                            <i class="fas fa-filter"></i> Terapkan Filter
+                        </button>
+                        <button id="reset-filters" class="btn btn-secondary">
+                            <i class="fas fa-sync"></i> Reset Filter
+                        </button>
+                    </div>
+                    
+                    <div class="summary-tabs">
+                        <button class="summary-tab active" data-summary="bahan" id="bahan-tab">Fliter by Bahan</button>
+                        <button class="summary-tab" data-summary="site" id="site-tab">Fliter by Site</button>
+                        <button class="summary-tab" data-summary="kuota" id="kuota-tab">Realisasi Kuota</button>
+                    </div>
+                    
+                    <div class="card summary-card">
+                        <div class="card-header">
+                            <h2><i class="fas fa-chart-pie"></i> Fliter by Penjualan</h2>
+                        </div>
+                        
+                        <div class="chart-container">
+                            <canvas id="summaryChart"></canvas>
+                        </div>
+                        
+                        <div class="chart-actions">
+                            <button class="chart-type-btn active" data-chart-type="bar">Bar Chart</button>
+                            <button class="chart-type-btn" data-chart-type="pie">Pie Chart</button>
+                            <button class="chart-type-btn" data-chart-type="line">Line Chart</button>
+                        </div>
+                        
+                        <div class="table-container">
+                            <table class="summary-table" id="summary-bahan-table">
+                                <thead>
+                                    <tr>
+                                        <th>Bahan Peledak</th>
+                                        <th>Total Transaksi</th>
+                                        <th>Total Kuantitas</th>
+                                        <th>Total Nilai Penjualan</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="summary-bahan-results">
+                                    <!-- Fliter by bahan akan diisi oleh JavaScript -->
+                                </tbody>
+                            </table>
+                            
+                            <table class="summary-table" id="summary-site-table" style="display: none;">
+                                <thead>
+                                    <tr>
+                                        <th>Site</th>
+                                        <th>Total Transaksi</th>
+                                        <th>Total Kuantitas</th>
+                                        <th>Total Nilai Penjualan</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="summary-site-results">
+                                    <!-- Fliter by site akan diisi oleh JavaScript -->
+                                </tbody>
+                            </table>
+                            
+                            <table class="summary-table" id="summary-kuota-table" style="display: none;">
+                                <thead>
+                                    <tr>
+                                        <th>Bahan Peledak</th>
+                                        <th>Kuota Tersedia</th>
+                                        <th>Realisasi</th>
+                                        <th>Persentase</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="summary-kuota-results">
+                                    <!-- Realisasi kuota akan diisi oleh JavaScript -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-header">
+                            <h2><i class="fas fa-history"></i> Riwayat Transaksi Terbaru</h2>
+                            <div class="actions">
+                                <button id="refresh-dashboard" class="btn btn-sm btn-secondary"><i class="fas fa-sync"></i></button>
+                            </div>
+                        </div>
+                        
+                        <div class="table-container">
+                            <table class="transaction-table">
+                                <thead>
+                                    <tr>
+                                        <th>Tanggal</th>
+                                        <th>Perusahaan</th>
+                                        <th>Jenis Bahan</th>
+                                        <th>Qty</th>
+                                        <th>Harga</th>
+                                        <th>Logistik</th>
+                                        <th>Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="dashboard-transactions">
+                                    <!-- Data transaksi akan diisi oleh JavaScript -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Panel Master Site -->
+                <div class="master-panel">
+                    <div class="master-panel-header">
+                        <h3><i class="fas fa-building"></i> Site</h3>
+                        <span class="badge badge-info" id="site-count">0</span>
+                    </div>
+                    <div class="search-container">
+                        <i class="fas fa-search"></i>
+                        <input type="text" id="search-site" placeholder="Cari site...">
+                    </div>
+                    <div class="master-list" id="site-list">
+                        <!-- Daftar site akan diisi JavaScript -->
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="input-transaksi" class="tab-content">
+            <div class="main-content">
+                <div class="card">
+                    <div class="card-header">
+                        <h2><i class="fas fa-plus-circle"></i> Input Data Transaksi Penjualan</h2>
+                    </div>
+                    
+                    <form id="transactionForm" method="POST">
+                        <input type="hidden" name="action" value="save_transaction">
+                        <input type="hidden" id="edit-id" name="edit_id" value="">
+                        <div class="form-group">
+                            <label for="perusahaan">Perusahaan/Site (Pembeli)</label>
+                            <select id="perusahaan" name="perusahaan" class="form-control" required>
+                                <option value="">Pilih Perusahaan</option>
+                                <!-- Options akan diisi oleh JavaScript -->
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Bahan Peledak</label>
+                            <div id="bahan-container">
+                                <div class="bahan-item">
+                                    <select class="form-control jenis-bahan" name="bahan[]" required>
+                                        <option value="">Pilih Jenis Bahan</option>
+                                        <!-- Options akan diisi oleh JavaScript -->
+                                    </select>
+                                    <input type="text" class="form-control quantity" name="quantity[]" placeholder="Qty" min="1" required>
+                                    <input type="text" class="form-control satuan" name="satuan[]" placeholder="Satuan" readonly>
+                                    <input type="text" class="form-control harga" name="harga[]" placeholder="Harga" min="0" required>
+                                    <button type="button" class="btn btn-danger btn-sm btn-icon remove-bahan"><i class="fas fa-times"></i></button>
+                                </div>
+                            </div>
+                            <button type="button" id="tambah-bahan" class="btn btn-secondary btn-add"><i class="fas fa-plus"></i> Tambah Bahan Lain</button>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="logistics">Biaya Logistik</label>
+                            <div class="logistics-cost">
+                                <input type="number" id="logistics" name="logistics" class="form-control" placeholder="Biaya logistik" min="0" required>
+                                <span class="badge badge-info">IDR</span>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="berita-acara">Upload Berita Acara Serah Terima</label>
+                            <div class="file-upload">
+                                <input type="file" id="berita-acara" name="berita_acara" accept=".pdf,.jpg,.jpeg,.png">
+                                <div class="file-upload-label">
+                                    <span><i class="fas fa-cloud-upload-alt"></i> Klik untuk mengunggah file</span>
+                                    <div class="file-name" id="file-name">Belum ada file dipilih</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="tanggal">Tanggal Serah Terima</label>
+                            <input type="date" id="tanggal" name="tanggal" class="form-control" required>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Simpan Transaksi</button>
+                        <button type="button" id="cancel-edit" class="btn btn-secondary" style="display: none; margin-top: 10px;"><i class="fas fa-times"></i> Batal Edit</button>
+                    </form>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <h2><i class="fas fa-history"></i> Riwayat Transaksi</h2>
+                        <div class="actions">
+                            <button id="refresh-transactions" class="btn btn-sm btn-secondary"><i class="fas fa-sync"></i></button>
+                        </div>
+                    </div>
+                    
+                    <div class="table-container">
+                        <table class="transaction-table">
+                            <thead>
+                                <tr>
+                                    <th>Tanggal</th>
+                                    <th>Perusahaan</th>
+                                    <th>Jenis Bahan</th>
+                                    <th>Qty</th>
+                                    <th>Harga</th>
+                                    <th>Logistik</th>
+                                    <th>Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="transaction-history">
+                                <!-- Data transaksi akan diisi oleh JavaScript -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="backup-section">
+                <div>
+                    <h3><i class="fas fa-download"></i> Backup Data</h3>
+                    <p>Download seluruh data transaksi dalam format JSON</p>
+                </div>
+                <button id="downloadBackup" class="btn btn-primary">
+                    <i class="fas fa-file-download"></i> Download Backup
+                </button>
+            </div>
+            
+            <div class="restore-section">
+                <div>
+                    <h3><i class="fas fa-upload"></i> Restore Data</h3>
+                    <p>Upload file backup JSON untuk memulihkan data</p>
+                </div>
+                
+                <div class="file-upload">
+                    <input type="file" id="restore-file" accept=".json">
+                    <div class="file-upload-label">
+                        <span><i class="fas fa-cloud-upload-alt"></i> Klik untuk mengunggah file backup</span>
+                        <div class="file-name" id="restore-file-name">Belum ada file dipilih</div>
+                    </div>
+                </div>
+                
+                <button id="restoreData" class="btn btn-warning">
+                    <i class="fas fa-file-upload"></i> Restore Data
+                </button>
+            </div>
+        </div>
+        
+        <div id="master-data" class="tab-content">
+            <div class="main-content">
+                <div class="card">
+                    <div class="card-header">
+                        <h2><i class="fas fa-bomb"></i> Daftar Bahan Peledak</h2>
+                        <div class="actions">
+                            <button id="tambah-bahan-btn" class="btn btn-primary btn-sm"><i class="fas fa-plus"></i> Tambah</button>
+                        </div>
+                    </div>
+                    
+                    <form method="POST">
+                        <input type="hidden" name="action" value="save_bahan">
+                        <div class="form-group">
+                            <label for="nama-bahan">Nama Bahan Peledak</label>
+                            <input type="text" id="nama-bahan" name="nama_bahan" class="form-control" placeholder="Contoh: Dynamite, TNT, dll">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="satuan-bahan">Satuan</label>
+                            <input type="text" id="satuan-bahan" name="satuan_bahan" class="form-control" placeholder="Contoh: kg, box, unit">
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Simpan Bahan</button>
+                    </form>
+                    
+                    <table class="master-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Nama Bahan</th>
+                                <th>Satuan</th>
+                                <th>Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="daftar-bahan">
+                            <?php foreach (getBahanPeledak() as $bahan): ?>
+                            <tr>
+                                <td><?php echo $bahan['id']; ?></td>
+                                <td><?php echo $bahan['nama']; ?></td>
+                                <td><?php echo $bahan['satuan']; ?></td>
+                                <td>
+                                    <button class="action-btn hapus-bahan" data-id="<?php echo $bahan['id']; ?>">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <h2><i class="fas fa-building"></i> Daftar Perusahaan/Site</h2>
+                        <div class="actions">
+                            <button id="tambah-customer-btn" class="btn btn-primary btn-sm"><i class="fas fa-plus"></i> Tambah</button>
+                        </div>
+                    </div>
+                    
+                    <form id="customerForm" method="POST">
+                        <input type="hidden" name="action" value="save_customer">
+                        <div class="form-group">
+                            <label for="nama-customer">Nama Perusahaan/Site</label>
+                            <input type="text" id="nama-customer" name="nama_customer" class="form-control" placeholder="Nama perusahaan" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="alamat-customer">Alamat</label>
+                            <textarea id="alamat-customer" name="alamat_customer" class="form-control" placeholder="Alamat lengkap" rows="3" required></textarea>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="koordinat">Koordinat (Lat, Lng)</label>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                                <input type="text" id="latitude" name="latitude" class="form-control" placeholder="Latitude" required>
+                                <input type="text" id="longitude" name="longitude" class="form-control" placeholder="Longitude" required>
+                            </div>
+                            <p style="margin-top: 8px; font-size: 12px; color: #95a5a6;">
+                                Gunakan layanan seperti Google Maps untuk mendapatkan koordinat
+                            </p>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Simpan Customer</button>
+                    </form>
+                    
+                    <table class="master-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Nama Perusahaan</th>
+                                <th>Alamat</th>
+                                <th>Koordinat</th>
+                                <th>Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="daftar-customer">
+                            <?php foreach (getCustomers() as $customer): ?>
+                            <tr>
+                                <td><?php echo $customer['id']; ?></td>
+                                <td><?php echo $customer['nama']; ?></td>
+                                <td><?php echo $customer['alamat']; ?></td>
+                                <td><?php echo $customer['koordinat']['lat'] . ', ' . $customer['koordinat']['lng']; ?></td>
+                                <td>
+                                    <button class="action-btn hapus-customer" data-id="<?php echo $customer['id']; ?>">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <!-- TAB BARU: Surat Izin Kementrian Pertahanan -->
+        <div id="sik-kemhan" class="tab-content">
+            <div class="main-content">
+                <div class="card">
+                    <div class="card-header">
+                        <h2><i class="fas fa-file-contract"></i> Input Surat Izin Kemhan</h2>
+                    </div>
+                    
+                    <form id="sikForm">
+                        <input type="hidden" id="sik-id" value="">
+                        <div class="form-group">
+                            <label for="nomor-sik">Nomor Surat Izin</label>
+                            <input type="text" id="nomor-sik" class="form-control" placeholder="Contoh: SIK/123/IV/2023" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="tanggal-mulai">Tanggal Mulai Berlaku</label>
+                            <input type="date" id="tanggal-mulai" class="form-control" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="tanggal-berakhir">Tanggal Berakhir</label>
+                            <input type="date" id="tanggal-berakhir" class="form-control" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Daftar Bahan dengan Kuota</label>
+                            <div id="sik-bahan-container">
+                                <div class="sik-bahan-row">
+                                    <select class="form-control bahan-sik" required>
+                                        <option value="">Pilih Jenis Bahan</option>
+                                        <!-- Options akan diisi oleh JavaScript -->
+                                    </select>
+                                    <input type="number" class="form-control kuota-sik" placeholder="Kuota" min="1" required>
+                                    <input type="text" class="form-control satuan-sik" placeholder="Satuan" readonly>
+                                    <button type="button" class="btn btn-danger btn-sm btn-icon remove-sik-bahan"><i class="fas fa-times"></i></button>
+                                </div>
+                            </div>
+                            <button type="button" id="tambah-sik-bahan" class="btn btn-secondary btn-add"><i class="fas fa-plus"></i> Tambah Bahan</button>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="keterangan-sik">Keterangan Tambahan</label>
+                            <textarea id="keterangan-sik" class="form-control" placeholder="Catatan tambahan" rows="3"></textarea>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Simpan SIK Kemhan</button>
+                        <button type="button" id="cancel-sik" class="btn btn-secondary" style="display: none; margin-top: 10px;"><i class="fas fa-times"></i> Batal Edit</button>
+                    </form>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <h2><i class="fas fa-list"></i> Daftar Surat Izin Kemhan</h2>
+                        <div class="actions">
+                            <button id="refresh-sik" class="btn btn-sm btn-secondary"><i class="fas fa-sync"></i></button>
+                        </div>
+                    </div>
+                    
+                    <div class="table-container">
+                        <table class="master-table">
+                            <thead>
+                                <tr>
+                                    <th>No. Surat</th>
+                                    <th>Periode</th>
+                                    <th>Total Kuota</th>
+                                    <th>Terpakai</th>
+                                    <th>Sisa</th>
+                                    <th>Status</th>
+                                    <th>Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="daftar-sik">
+                                <!-- Daftar SIK Kemhan akan diisi oleh JavaScript -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <h2><i class="fas fa-chart-line"></i> Fliter by Kuota SIK Kemhan</h2>
+                </div>
+                
+                <div class="sik-quota-info" id="sik-quota-summary">
+                    <!-- Fliter by kuota akan diisi oleh JavaScript -->
+                </div>
+                
+                <!-- Grafik Kuota dan Realisasi Tahun ke Tahun -->
+                <div class="card" style="margin-top: 20px;">
+                    <div class="card-header">
+                        <h2><i class="fas fa-chart-bar"></i> Grafik Kuota dan Realisasi Tahun ke Tahun</h2>
+                    </div>
+                    <div class="sik-chart-container">
+                        <canvas id="sikChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+<div id="map" class="tab-content">
+    <div class="card">
+        <div class="card-header">
+            <h2><i class="fas fa-map-marked-alt"></i> Peta Persebaran Customer</h2>
+            <div class="actions">
+                <button id="refresh-map" class="btn btn-sm btn-secondary"><i class="fas fa-sync"></i></button>
+            </div>
+        </div>
+        
+        <div class="map-controls">
+            <button class="btn btn-info" id="zoom-in"><i class="fas fa-search-plus"></i> Perbesar</button>
+            <button class="btn btn-info" id="zoom-out"><i class="fas fa-search-minus"></i> Perkecil</button>
+            <button class="btn btn-info" id="reset-map"><i class="fas fa-globe-asia"></i> Reset Peta</button>
+        </div>
+        
+        <div class="map-container">
+            <div id="map-container" style="height: 600px; border-radius: 15px;"></div>
+            <div class="map-overlay">
+                <h3><i class="fas fa-list"></i> Daftar Customer</h3>
+                <div class="customer-search-container">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="customer-search" placeholder="Cari customer...">
+                </div>
+                <div id="customer-list">
+                    <!-- Daftar customer untuk map -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+        
+<div id="reports" class="tab-content">
+    <div class="card">
+        <div class="card-header">
+            <h2><i class="fas fa-chart-pie"></i> Laporan Penjualan</h2>
+        </div>
+        
+        <div class="filter-section">
+            <div class="form-group">
+                <label for="report-period">Periode Laporan</label>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <input type="date" id="start-date" class="form-control">
+                    <input type="date" id="end-date" class="form-control">
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="customer-filter">Filter Customer</label>
+                <select id="customer-filter" class="form-control">
+                    <option value="">Semua Customer</option>
+                    <!-- Options akan diisi oleh JavaScript -->
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="bahan-filter">Filter Bahan Peledak</label>
+                <select id="bahan-filter" class="form-control">
+                    <option value="">Semua Bahan</option>
+                    <!-- Options akan diisi oleh JavaScript -->
+                </select>
+            </div>
+            
+            <div style="display: flex; align-items: flex-end;">
+                <button id="generate-report" class="btn btn-primary" style="height: 44px;">
+                    <i class="fas fa-cogs"></i> Generate Laporan
+                </button>
+            </div>
+        </div>
+        
+        <div id="filter-notification"></div>
+        
+        <div class="table-container" style="margin-top: 20px; overflow-x: auto;">
+            <table class="transaction-table" style="min-width: 4000px; font-size: 10px;">
+                <thead>
+                    <tr>
+                        <!-- Customer Section -->
+                        <th rowspan="2">No. Project</th>
+                        <th rowspan="2">Date PO Customer</th>
+                        <th rowspan="2">No. PO Customer</th>
+                        <th rowspan="2">Description</th>
+                        <th rowspan="2">Qty</th>
+                        <th rowspan="2">Unit</th>
+                        <th rowspan="2">Unit Price (IDR)</th>
+                        <th rowspan="2">DPP</th>
+                        <th rowspan="2">PPN</th>
+                        <th rowspan="2">Amount</th>
+                        
+                        <!-- Vendor Section -->
+                        <th rowspan="2">Vendor</th>
+                        <th rowspan="2">No. PO Vendor</th>
+                        <th rowspan="2">Description</th>
+                        <th rowspan="2">Qty</th>
+                        <th rowspan="2">Unit</th>
+                        <th rowspan="2">Unit Price (IDR)</th>
+                        <th rowspan="2">DPP</th>
+                        <th rowspan="2">PPN</th>
+                        <th rowspan="2">Amount</th>
+                        <th rowspan="2">Invoice Vendor</th>
+                        <th rowspan="2">Date of Payment Vendor</th>
+                        
+                        <!-- Transport Section -->
+                        <th rowspan="2">Transport</th>
+                        <th rowspan="2">DPP</th>
+                        <th rowspan="2">PPN</th>
+                        <th rowspan="2">PPH 23</th>
+                        <th rowspan="2">Amount</th>
+                        <th rowspan="2">Invoice Transport</th>
+                        <th rowspan="2">Date of Payment Transport</th>
+                        
+                        <!-- BAST Section -->
+                        <th rowspan="2">Date of BAST</th>
+                        <th rowspan="2">Hardcopy BAST</th>
+                        <th rowspan="2">Receipt PO & BAST</th>
+                        
+                        <!-- Invoice to Customer Section -->
+                        <th rowspan="2">No. Invoice DAN to Cust</th>
+                        <th rowspan="2">Amount Inc. Tax</th>
+                        <th rowspan="2">Invoice Date</th>
+                        <th rowspan="2">Due Date</th>
+                        <th rowspan="2">Date of Payment Customer</th>
+                        <th rowspan="2">Remark</th>
+                    </tr>
+                </thead>
+                <tbody id="report-results">
+                    <!-- Hasil laporan akan diisi oleh JavaScript -->
+                </tbody>
+            </table>
+        </div>
+        
+        <div class="report-actions">
+            <button id="download-excel" class="btn btn-success">
+                <i class="fas fa-file-excel"></i> Download Laporan (Excel)
+            </button>
+            <button id="download-pdf" class="btn btn-danger">
+                <i class="fas fa-file-pdf"></i> Download Laporan (PDF)
+            </button>
+        </div>
+    </div>
+</div>
+
+    <!-- Modal Konfirmasi Hapus -->
+    <div id="deleteModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title"><i class="fas fa-exclamation-triangle"></i> Konfirmasi Penghapusan</h3>
+                <button class="close-modal">&times;</button>
+            </div>
+            <p>Apakah Anda yakin ingin menghapus transaksi ini? Data yang dihapus tidak dapat dikembalikan.</p>
+            <div class="modal-footer">
+                <button id="confirm-delete" class="btn btn-danger"><i class="fas fa-trash"></i> Hapus</button>
+                <button id="cancel-delete" class="btn btn-secondary"><i class="fas fa-times"></i> Batal</button>
+            </div>
+        </div>
+    </div>
+
+<script>
+    // Data akan diambil dari PHP yang sudah terhubung ke PostgreSQL
+    let transactions = <?php echo json_encode($transactions); ?>;
+    let bahanPeledak = <?php echo json_encode($bahanPeledak); ?>;
+    let customers = <?php echo json_encode($customers); ?>;
+    let sikKemhanList = <?php echo json_encode($sikKemhanList); ?>;
+</script>
+
+<script src="app.js"></script>
+</body>
+</html>
